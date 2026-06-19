@@ -47,6 +47,10 @@ You have a life besides this and we respect that. If you left out stuff, mention
 
 ## The project
 
+### Live demo
+
+[https://ra-frontend-code-exercise-omega.vercel.app/](https://ra-frontend-code-exercise-omega.vercel.app/)
+
 ### Getting started
 
 The required node.js and NPM versions are defined at the `package.json` file.
