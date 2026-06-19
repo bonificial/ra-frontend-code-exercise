@@ -5,9 +5,11 @@ import { SearchField } from '@/components/SearchField';
 import { StatusFilter } from '@/components/StatusFilter';
 import { useToast } from '@/hooks/useToast';
 import { useDebounce } from '@/hooks/useDebounce';
-import { usePeople } from '@/hooks/usePeople';
+import { usePeopleList } from '@/hooks/usePeopleList';
+import { peopleKeys } from '@/lib/queryKeys';
 import { Person } from '@/types/person';
 import { isPersonEnabled } from '@/utils/person';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ReactElement, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PeopleTable } from './PeopleTable';
@@ -18,21 +20,44 @@ const contentWidth = 'mx-auto w-full max-w-[var(--layout-width)]';
 
 export const PeoplePage = (): ReactElement => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [search, setSearch] = useState('');
   const [statusFilters, setStatusFilters] = useState<Person['status'][]>([]);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const debouncedSearch = useDebounce(search, 300);
 
-  const { people, totalCount, isLoading, error, refetch } = usePeople({
+  const { data, isLoading, isFetching, error } = usePeopleList({
     search: debouncedSearch,
     statuses: statusFilters,
     page,
     limit,
   });
+
+  const toggleEnabledMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: number; enabled: boolean; name: string }) =>
+      updatePersonEnabled(id, enabled),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: peopleKeys.lists() });
+      showToast(
+        variables.enabled
+          ? `${variables.name} has been enabled`
+          : `${variables.name} has been disabled`
+      );
+    },
+    onError: (_error, variables) => {
+      showToast(`Unable to update ${variables.name}. Please try again.`);
+    },
+  });
+
+  const people = data?.data ?? [];
+  const totalCount = data?.totalCount ?? 0;
+  const errorMessage = error instanceof Error ? error.message : null;
+  const showInitialLoading = isLoading && !data;
+  const { mutate: toggleEnabled, isPending, variables } = toggleEnabledMutation;
+  const togglingId = isPending && variables ? variables.id : null;
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -57,23 +82,14 @@ export const PeoplePage = (): ReactElement => {
   );
 
   const handleToggleEnabled = useCallback(
-    async (person: Person) => {
-      const nextEnabled = !isPersonEnabled(person);
-      setTogglingId(person.id);
-
-      try {
-        await updatePersonEnabled(person.id, nextEnabled);
-        refetch();
-        showToast(
-          nextEnabled ? `${person.name} has been enabled` : `${person.name} has been disabled`
-        );
-      } catch {
-        showToast(`Unable to update ${person.name}. Please try again.`);
-      } finally {
-        setTogglingId(null);
-      }
+    (person: Person) => {
+      toggleEnabled({
+        id: person.id,
+        enabled: !isPersonEnabled(person),
+        name: person.name,
+      });
     },
-    [refetch, showToast]
+    [toggleEnabled]
   );
 
   return (
@@ -96,7 +112,7 @@ export const PeoplePage = (): ReactElement => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h1 className="m-0 text-[2.4rem] font-semibold text-[var(--colors-gray-600)]">
               People
-              {!isLoading && (
+              {!showInitialLoading && (
                 <span className="ml-2 text-[1.6rem] font-normal text-[var(--colors-gray-500)]">
                   ({totalCount} members)
                 </span>
@@ -121,8 +137,9 @@ export const PeoplePage = (): ReactElement => {
             <PeopleTable
               people={people}
               totalCount={totalCount}
-              isLoading={isLoading}
-              error={error}
+              isLoading={showInitialLoading}
+              isFetching={isFetching && !showInitialLoading}
+              error={errorMessage}
               page={page}
               limit={limit}
               togglingId={togglingId}

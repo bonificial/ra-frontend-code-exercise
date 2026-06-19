@@ -18,6 +18,7 @@ type Props = {
   people: Person[];
   totalCount: number;
   isLoading: boolean;
+  isFetching?: boolean;
   error: string | null;
   page: number;
   limit: number;
@@ -32,6 +33,7 @@ export const PeopleTable = ({
   people,
   totalCount,
   isLoading,
+  isFetching = false,
   error,
   page,
   limit,
@@ -45,7 +47,7 @@ export const PeopleTable = ({
 
   return (
     <div className="w-full">
-      <div className="overflow-x-auto">
+      <div className={`overflow-x-auto transition-opacity ${isFetching ? 'opacity-60' : ''}`}>
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-[var(--colors-bgBase)]">

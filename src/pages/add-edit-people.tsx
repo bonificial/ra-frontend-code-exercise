@@ -1,9 +1,11 @@
-import { createPerson, fetchPersonById, updatePerson } from '@/api/people';
+import { createPerson, updatePerson } from '@/api/people';
 import { MemberForm } from '@/components/MemberForm';
 import { SuccessModal } from '@/components/SuccessModal';
+import { usePerson } from '@/hooks/usePerson';
+import { peopleKeys } from '@/lib/queryKeys';
 import { MemberFormValues, personToFormValues } from '@/utils/memberForm';
-import { Person } from '@/types/person';
-import { ReactElement, useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ReactElement, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 const Container = ({ children }: { children: React.ReactNode }) => (
@@ -14,57 +16,36 @@ const Container = ({ children }: { children: React.ReactNode }) => (
 
 export const AddEditPeoplePage = (): ReactElement => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { id } = useParams<{ id: string }>();
   const isEditing = Boolean(id);
-  const [person, setPerson] = useState<Person | null>(null);
-  const [isLoading, setIsLoading] = useState(isEditing);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const personId = id ? Number(id) : undefined;
   const [showSuccess, setShowSuccess] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
+  const {
+    data: person,
+    isLoading,
+    error: loadError,
+  } = usePerson(isEditing ? personId : undefined);
 
-    const controller = new AbortController();
-
-    fetchPersonById(Number(id), controller.signal)
-      .then((data) => {
-        setPerson(data);
-        setLoadError(null);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return;
-        }
-        setLoadError('Unable to load this member.');
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [id]);
-
-  const handleSubmit = async (values: MemberFormValues) => {
-    setIsSubmitting(true);
-    setSubmitError(null);
-
-    try {
-      if (isEditing && id && person) {
-        await updatePerson(Number(id), values, person);
-      } else {
-        await createPerson(values);
+  const saveMutation = useMutation({
+    mutationFn: (values: MemberFormValues) => {
+      if (isEditing && personId && person) {
+        return updatePerson(personId, values, person);
       }
-
+      return createPerson(values);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: peopleKeys.lists() });
+      if (personId) {
+        queryClient.invalidateQueries({ queryKey: peopleKeys.detail(personId) });
+      }
       setShowSuccess(true);
-    } catch {
-      setSubmitError('Unable to save this member. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    },
+  });
+
+  const handleSubmit = (values: MemberFormValues) => {
+    saveMutation.mutate(values);
   };
 
   const handleSuccessClose = () => {
@@ -75,6 +56,16 @@ export const AddEditPeoplePage = (): ReactElement => {
   const handleCancel = () => {
     navigate('/');
   };
+
+  const loadErrorMessage =
+    loadError instanceof Error ? loadError.message : loadError ? 'Unable to load this member.' : null;
+
+  const submitErrorMessage =
+    saveMutation.error instanceof Error
+      ? saveMutation.error.message
+      : saveMutation.error
+        ? 'Unable to save this member. Please try again.'
+        : null;
 
   return (
     <>
@@ -100,19 +91,19 @@ export const AddEditPeoplePage = (): ReactElement => {
           <p className="mt-8 text-[1.4rem] text-[var(--colors-gray-500)]">Loading member…</p>
         )}
 
-        {!isLoading && loadError && (
-          <p className="mt-8 text-[1.4rem] text-[var(--colors-redPink)]">{loadError}</p>
+        {!isLoading && loadErrorMessage && (
+          <p className="mt-8 text-[1.4rem] text-[var(--colors-redPink)]">{loadErrorMessage}</p>
         )}
 
-        {!isLoading && !loadError && (!isEditing || person) && (
+        {!isLoading && !loadErrorMessage && (!isEditing || person) && (
           <>
-            {submitError && (
-              <p className="mt-6 text-[1.4rem] text-[var(--colors-redPink)]">{submitError}</p>
+            {submitErrorMessage && (
+              <p className="mt-6 text-[1.4rem] text-[var(--colors-redPink)]">{submitErrorMessage}</p>
             )}
             <MemberForm
               initialValues={person ? personToFormValues(person) : undefined}
               submitLabel={isEditing ? 'Save changes' : 'Add member'}
-              isSubmitting={isSubmitting}
+              isSubmitting={saveMutation.isPending}
               onSubmit={handleSubmit}
               onCancel={handleCancel}
             />
