@@ -1,7 +1,8 @@
 @import 'tailwindcss';
 
 :root {
-  --colors-brand: #624de3;
+  --colors-brand: #7F5AF8;
+  --colors-brand-hover: #6B4CE0;
   --colors-darkBlue: #00234b;
   --colors-redPink: #ff4a5a;
 
@@ -39,7 +40,13 @@ html {
 
 body {
   margin: 0;
+  font-family: var(--font-primary);
   font-weight: 400;
   font-size: 1.6rem;
   line-height: 1.5;
+  color: var(--colors-darkBlue);
+}
+
+input[type='search']::-webkit-search-cancel-button {
+  display: none;
 }

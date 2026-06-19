@@ -143,6 +143,7 @@ for (let i = 1; i <= 482; i++) {
     employment: getRandomElement(employmentTypes),
     status: getWeightedStatus(),
     photo: generatePhoto(name, i),
+    enabled: true,
   });
 }
 

@@ -7,5 +7,6 @@ export type Person = {
   currency: string;
   employment: string;
   status: 'onboarding' | 'active' | 'offboarded';
-  photo: string;
+  photo: string | null;
+  enabled?: boolean;
 };
