@@ -1,11 +1,10 @@
+import { PEOPLE_API_BASE } from '@/config/env';
 import { Person } from '@/types/person';
 import { MemberFormValues } from '@/utils/memberForm';
 import {
   formValuesToPersonPayload,
   formValuesToUpdatePayload,
 } from '@/utils/person';
-
-const API_BASE = 'http://localhost:4002/people';
 
 export type PeopleQuery = {
   page: number;
@@ -41,7 +40,7 @@ export async function fetchPeople(query: PeopleQuery): Promise<PeopleResponse> {
     params.append('status', status);
   });
 
-  const response = await fetch(`${API_BASE}?${params}`, {
+  const response = await fetch(`${PEOPLE_API_BASE}?${params}`, {
     signal: query.signal,
   });
 
@@ -56,13 +55,13 @@ export async function fetchPeople(query: PeopleQuery): Promise<PeopleResponse> {
 }
 
 export async function fetchPersonById(id: number, signal?: AbortSignal): Promise<Person> {
-  const response = await fetch(`${API_BASE}/${id}`, { signal });
+  const response = await fetch(`${PEOPLE_API_BASE}/${id}`, { signal });
 
   return parseJsonResponse<Person>(response, 'Failed to load member');
 }
 
 export async function createPerson(values: MemberFormValues): Promise<Person> {
-  const response = await fetch(API_BASE, {
+  const response = await fetch(PEOPLE_API_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(formValuesToPersonPayload(values)),
@@ -76,7 +75,7 @@ export async function updatePerson(
   values: MemberFormValues,
   existing: Person
 ): Promise<Person> {
-  const response = await fetch(`${API_BASE}/${id}`, {
+  const response = await fetch(`${PEOPLE_API_BASE}/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(formValuesToUpdatePayload(values, existing)),
@@ -86,7 +85,7 @@ export async function updatePerson(
 }
 
 export async function updatePersonEnabled(id: number, enabled: boolean): Promise<Person> {
-  const response = await fetch(`${API_BASE}/${id}`, {
+  const response = await fetch(`${PEOPLE_API_BASE}/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
